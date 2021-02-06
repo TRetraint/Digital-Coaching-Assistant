@@ -4,6 +4,8 @@ import time
 
 import cv2
 import numpy as np
+import pandas as pd
+import os
 
 from tf_pose.estimator import TfPoseEstimator
 from tf_pose.networks import get_graph_path, model_wh
@@ -17,6 +19,11 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 fps_time = 0
+
+df = pd.DataFrame(columns=['x_Nose','y_Nose','x_Neck','y_Neck','x_RShoulder','y_RShoulder','x_RElbow',
+'y_RElbow','x_RWrist','y_RWrist','x_LShoulder','y_LShoulder','x_LElbow','y_LElbow','x_LWrist','y_LWrist',
+'x_RHip','y_RHip','x_RKnee','y_RKnee','x_RAnkle','y_RAnkle','x_LHip','y_LHip','x_LKnee','y_LKnee','x_LAnkle','y_LAnkle',
+'x_REye','y_REye','x_LEye','y_LEye','x_REar','y_REar','x_LEar','y_LEar'])
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -51,14 +58,21 @@ if __name__ == '__main__':
     logger.info('cam image=%dx%d' % (image.shape[1], image.shape[0]))
 
     while True:
+        liste = []
         ret_val, image = cam.read()
 
         logger.debug('image process+')
+        if ret_val == False:
+            df.to_csv(os.path.splitext(args.camera)[0]+'.csv')
+            break
         humans = e.inference(image, resize_to_default=(w > 0 and h > 0), upsample_size=args.resize_out_ratio)
 
         logger.debug('postprocess+')
-        image = TfPoseEstimator.draw_humans(image, humans, imgcopy=False)
-
+        image, liste = TfPoseEstimator.draw_humans(image, humans, imgcopy=False)
+        df = df.append(pd.Series(liste,index=['x_Nose','y_Nose','x_Neck','y_Neck','x_RShoulder','y_RShoulder','x_RElbow',
+'y_RElbow','x_RWrist','y_RWrist','x_LShoulder','y_LShoulder','x_LElbow','y_LElbow','x_LWrist','y_LWrist',
+'x_RHip','y_RHip','x_RKnee','y_RKnee','x_RAnkle','y_RAnkle','x_LHip','y_LHip','x_LKnee','y_LKnee','x_LAnkle','y_LAnkle',
+'x_REye','y_REye','x_LEye','y_LEye','x_REar','y_REar','x_LEar','y_LEar']), ignore_index= True)
         logger.debug('show+')
         cv2.putText(image,
                     "FPS: %f" % (1.0 / (time.time() - fps_time)),
@@ -69,5 +83,4 @@ if __name__ == '__main__':
         if cv2.waitKey(1) == 27:
             break
         logger.debug('finished+')
-
     cv2.destroyAllWindows()

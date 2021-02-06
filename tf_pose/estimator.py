@@ -7,6 +7,8 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import time
+import os 
+import json
 
 from tf_pose import common
 from tf_pose.common import CocoPart
@@ -405,6 +407,7 @@ class TfPoseEstimator:
 
     @staticmethod
     def draw_humans(npimg, humans, imgcopy=False):
+        flat = [0.0 for i in range(36)]
         if imgcopy:
             npimg = np.copy(npimg)
         image_h, image_w = npimg.shape[:2]
@@ -414,12 +417,13 @@ class TfPoseEstimator:
             for i in range(common.CocoPart.Background.value):
                 if i not in human.body_parts.keys():
                     continue
-
                 body_part = human.body_parts[i]
                 center = (int(body_part.x * image_w + 0.5), int(body_part.y * image_h + 0.5))
                 centers[i] = center
+                flat[i*2] = center[0]
+			    #add y coordinate
+                flat[i*2+1] = center[1]
                 cv2.circle(npimg, center, 3, common.CocoColors[i], thickness=3, lineType=8, shift=0)
-
             # draw line
             for pair_order, pair in enumerate(common.CocoPairsRender):
                 if pair[0] not in human.body_parts.keys() or pair[1] not in human.body_parts.keys():
@@ -427,8 +431,7 @@ class TfPoseEstimator:
 
                 # npimg = cv2.line(npimg, centers[pair[0]], centers[pair[1]], common.CocoColors[pair_order], 3)
                 cv2.line(npimg, centers[pair[0]], centers[pair[1]], common.CocoColors[pair_order], 3)
-
-        return npimg
+        return npimg, flat
 
     def _get_scaled_img(self, npimg, scale):
         get_base_scale = lambda s, w, h: max(self.target_size[0] / float(h), self.target_size[1] / float(w)) * s
@@ -534,7 +537,7 @@ class TfPoseEstimator:
     def inference(self, npimg, resize_to_default=True, upsample_size=1.0):
         if npimg is None:
             raise Exception('The image is not valid. Please check your image exists.')
-
+        
         if resize_to_default:
             upsample_size = [int(self.target_size[1] / 8 * upsample_size), int(self.target_size[0] / 8 * upsample_size)]
         else:
