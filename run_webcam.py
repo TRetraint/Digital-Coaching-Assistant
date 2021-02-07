@@ -48,6 +48,7 @@ if __name__ == '__main__':
 
     logger.debug('initialization %s : %s' % (args.model, get_graph_path(args.model)))
     w, h = model_wh(args.resize)
+    print("RESOLUTION {0}x{1}".format(w,h))
     if w > 0 and h > 0:
         e = TfPoseEstimator(get_graph_path(args.model), target_size=(w, h), trt_bool=str2bool(args.tensorrt))
     else:
@@ -63,7 +64,7 @@ if __name__ == '__main__':
 
         logger.debug('image process+')
         if ret_val == False:
-            df.to_csv(os.path.splitext(args.camera)[0]+'.csv')
+            #df.to_csv(os.path.splitext(args.camera)[0]+'.csv')
             break
         humans = e.inference(image, resize_to_default=(w > 0 and h > 0), upsample_size=args.resize_out_ratio)
 
