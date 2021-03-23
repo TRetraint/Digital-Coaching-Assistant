@@ -7,8 +7,6 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import time
-import os 
-import json
 
 from tf_pose import common
 from tf_pose.common import CocoPart
@@ -407,13 +405,15 @@ class TfPoseEstimator:
 
     @staticmethod
     def draw_humans(npimg, humans, imgcopy=False):
-        flat = [0.0 for i in range(36)]
+        
         if imgcopy:
             npimg = np.copy(npimg)
         image_h, image_w = npimg.shape[:2]
         centers = {}
+        ret = []
         for human in humans:
             # draw point
+            flat = [0.0 for i in range(36)]
             for i in range(common.CocoPart.Background.value):
                 if i not in human.body_parts.keys():
                     continue
@@ -424,6 +424,7 @@ class TfPoseEstimator:
 			    #add y coordinate
                 flat[i*2+1] = center[1]
                 cv2.circle(npimg, center, 3, common.CocoColors[i], thickness=3, lineType=8, shift=0)
+            ret.append(flat)
             # draw line
             for pair_order, pair in enumerate(common.CocoPairsRender):
                 if pair[0] not in human.body_parts.keys() or pair[1] not in human.body_parts.keys():
@@ -431,7 +432,7 @@ class TfPoseEstimator:
 
                 # npimg = cv2.line(npimg, centers[pair[0]], centers[pair[1]], common.CocoColors[pair_order], 3)
                 cv2.line(npimg, centers[pair[0]], centers[pair[1]], common.CocoColors[pair_order], 3)
-        return npimg, flat
+        return npimg, ret
 
     def _get_scaled_img(self, npimg, scale):
         get_base_scale = lambda s, w, h: max(self.target_size[0] / float(h), self.target_size[1] / float(w)) * s

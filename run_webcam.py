@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 import pandas as pd
 import os
+import joint_extractor
+import reps_counter
 
 from tf_pose.estimator import TfPoseEstimator
 from tf_pose.networks import get_graph_path, model_wh
@@ -19,11 +21,15 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 fps_time = 0
+reps_position = []
+count_reps = 0
+precedent_pos = 0
 
-df = pd.DataFrame(columns=['x_Nose','y_Nose','x_Neck','y_Neck','x_RShoulder','y_RShoulder','x_RElbow',
-'y_RElbow','x_RWrist','y_RWrist','x_LShoulder','y_LShoulder','x_LElbow','y_LElbow','x_LWrist','y_LWrist',
-'x_RHip','y_RHip','x_RKnee','y_RKnee','x_RAnkle','y_RAnkle','x_LHip','y_LHip','x_LKnee','y_LKnee','x_LAnkle','y_LAnkle',
-'x_REye','y_REye','x_LEye','y_LEye','x_REar','y_REar','x_LEar','y_LEar'])
+in_reps = 0
+
+df_list = []
+
+df_reps = pd.DataFrame(columns=['Right_Up_Angle','Left_Up_Angle','Right_Low_Angle','Left_Low_Angle'])
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -57,29 +63,78 @@ if __name__ == '__main__':
     cam = cv2.VideoCapture(args.camera)
     ret_val, image = cam.read()
     logger.info('cam image=%dx%d' % (image.shape[1], image.shape[0]))
-
+    w = int(cam.get(3))
+    h = int(cam.get(4))
     while True:
-        liste = []
+        coord = []
         ret_val, image = cam.read()
-
         logger.debug('image process+')
         if ret_val == False:
-            #df.to_csv(os.path.splitext(args.camera)[0]+'.csv')
+            for id_human in range(len(df_list)):
+                print('fin')
+                df_list[id_human].to_csv("./keypoints/" + os.path.basename(os.path.normpath(os.path.splitext(args.camera)[0]))+'human_'+str(id_human+1)+'.csv')
             break
         humans = e.inference(image, resize_to_default=(w > 0 and h > 0), upsample_size=args.resize_out_ratio)
-
         logger.debug('postprocess+')
-        image, liste = TfPoseEstimator.draw_humans(image, humans, imgcopy=False)
-        df = df.append(pd.Series(liste,index=['x_Nose','y_Nose','x_Neck','y_Neck','x_RShoulder','y_RShoulder','x_RElbow',
+        image, coord = TfPoseEstimator.draw_humans(image, humans, imgcopy=False)
+        if df_list == []:
+            for i in range(len(coord)):
+                df_list.append(pd.DataFrame(columns=['x_Nose','y_Nose','x_Neck','y_Neck','x_RShoulder','y_RShoulder','x_RElbow',
 'y_RElbow','x_RWrist','y_RWrist','x_LShoulder','y_LShoulder','x_LElbow','y_LElbow','x_LWrist','y_LWrist',
 'x_RHip','y_RHip','x_RKnee','y_RKnee','x_RAnkle','y_RAnkle','x_LHip','y_LHip','x_LKnee','y_LKnee','x_LAnkle','y_LAnkle',
-'x_REye','y_REye','x_LEye','y_LEye','x_REar','y_REar','x_LEar','y_LEar']), ignore_index= True)
+'x_REye','y_REye','x_LEye','y_LEye','x_REar','y_REar','x_LEar','y_LEar','Right_Up_Angle','Left_Up_Angle','Right_Low_Angle','Left_Low_Angle']))
+        for id_human in range(len(coord)):
+            rua = joint_extractor.Right_Up_Angle(coord[id_human])
+            lua = joint_extractor.Left_Up_Angle(coord[id_human])
+            rla = joint_extractor.Right_Low_Angle(coord[id_human])
+            lla = joint_extractor.Left_Low_Angle(coord[id_human])
+            coord[id_human].append(rua)
+            coord[id_human].append(lua)
+            coord[id_human].append(rla)
+            coord[id_human].append(lla)
+            df_list[id_human] = df_list[id_human].append(pd.Series(coord[id_human],index=['x_Nose','y_Nose','x_Neck','y_Neck','x_RShoulder','y_RShoulder','x_RElbow',
+'y_RElbow','x_RWrist','y_RWrist','x_LShoulder','y_LShoulder','x_LElbow','y_LElbow','x_LWrist','y_LWrist',
+'x_RHip','y_RHip','x_RKnee','y_RKnee','x_RAnkle','y_RAnkle','x_LHip','y_LHip','x_LKnee','y_LKnee','x_LAnkle','y_LAnkle',
+'x_REye','y_REye','x_LEye','y_LEye','x_REar','y_REar','x_LEar','y_LEar','Right_Up_Angle','Left_Up_Angle','Right_Low_Angle','Left_Low_Angle']), ignore_index= True)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            text = "Start Reps"
+            text2 = "Middle Reps"
+            text3 = "Count Reps: "+ str(count_reps)
+            textsize = cv2.getTextSize(text, font, 0.5, 1)[0]
+            textsize2 = cv2.getTextSize(text2, font, 0.5, 1)[0]
+            textsize3 = cv2.getTextSize(text2, font, 0.5, 1)[0]
+            scale = 0.02
+            fontScale = min(image.shape[1],image.shape[0])/(25/scale)  
+            textX = (image.shape[1] - textsize[0]) / 2
+            textY = (image.shape[0] + textsize[1]) - 50
+            text2X = (image.shape[1] - textsize2[0]) / 2
+            text2Y = (image.shape[0] + textsize2[1]) - 50
+            val_start_reps = reps_counter.start_reps_pull_ups(coord[id_human][36], coord[id_human][37],coord[id_human][9],coord[id_human][15],coord[id_human][7],coord[id_human][13])
+            reps_position.append(val_start_reps)
+            reps_position, val_count = reps_counter.count_pull_ups_rep(reps_position,coord[id_human][36], coord[id_human][37])
+            cv2.putText(image, text3, (int(coord[id_human][20]-10), int(coord[id_human][21]+20)), font, fontScale, (0, 255, 0), 2)
+            if val_count:
+                count_reps = count_reps + 1
+            if val_start_reps:
+                cv2.putText(image, text,(int(coord[id_human][20]-10), int(coord[id_human][21]+40)), font, fontScale, (0, 255, 0), 2)
+                in_reps = 1
+            if in_reps:
+                df_reps = df_reps.append(pd.Series([rua, lua, rla, lla],index = ['Right_Up_Angle','Left_Up_Angle','Right_Low_Angle','Left_Low_Angle']), ignore_index= True)
+                if precedent_pos == 0 and val_start_reps == 1:
+                    if count_reps == 0:
+                        pass
+                    else:
+                        #df_reps.to_csv("./pull_up_data/reps_keypoints/" + os.path.basename(os.path.normpath(os.path.splitext(args.camera)[0]))+'_'+str(count_reps)+'.csv')
+                        df_reps = pd.DataFrame(columns=['Right_Up_Angle','Left_Up_Angle','Right_Low_Angle','Left_Low_Angle'])
+            if reps_counter.end_reps_pull_ups(coord[id_human][36], coord[id_human][37]):
+                cv2.putText(image, text2,(int(coord[id_human][20]-10), int(coord[id_human][21]+40)), font, fontScale, (0, 255, 0), 2)
+            precedent_pos = val_start_reps
         logger.debug('show+')
         cv2.putText(image,
                     "FPS: %f" % (1.0 / (time.time() - fps_time)),
                     (10, 10),  cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                     (0, 255, 0), 2)
-        cv2.imshow('tf-pose-estimation result', image)
+        cv2.imshow('Pose Detection', image)
         fps_time = time.time()
         if cv2.waitKey(1) == 27:
             break
