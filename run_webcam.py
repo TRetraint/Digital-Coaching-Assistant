@@ -24,7 +24,7 @@ fps_time = 0
 reps_position = []
 count_reps = 0
 precedent_pos = 0
-
+bar_humans = []
 in_reps = 0
 
 df_list = []
@@ -83,7 +83,16 @@ if __name__ == '__main__':
 'y_RElbow','x_RWrist','y_RWrist','x_LShoulder','y_LShoulder','x_LElbow','y_LElbow','x_LWrist','y_LWrist',
 'x_RHip','y_RHip','x_RKnee','y_RKnee','x_RAnkle','y_RAnkle','x_LHip','y_LHip','x_LKnee','y_LKnee','x_LAnkle','y_LAnkle',
 'x_REye','y_REye','x_LEye','y_LEye','x_REar','y_REar','x_LEar','y_LEar','Right_Up_Angle','Left_Up_Angle','Right_Low_Angle','Left_Low_Angle']))
+                bar_humans.append([sum(coord[i][0::2])/18,sum(coord[i][1::2])/18])
         for id_human in range(len(coord)):
+            baricenter = [sum(coord[id_human][0::2])/18,sum(coord[id_human][1::2])/18]
+            dist = np.sqrt((baricenter[0]-bar_humans[0][0])**2 + (baricenter[1]-bar_humans[0][1])**2)
+            idx_min = 0
+            for k in range(len(coord)):
+                dist_cal = np.sqrt((baricenter[0]-bar_humans[k][0])**2 + (baricenter[1]-bar_humans[k][1])**2)
+                if dist_cal < dist:
+                    idx_min = k
+            bar_humans[idx_min] = baricenter
             rua = joint_extractor.Right_Up_Angle(coord[id_human])
             lua = joint_extractor.Left_Up_Angle(coord[id_human])
             rla = joint_extractor.Right_Low_Angle(coord[id_human])
@@ -92,7 +101,7 @@ if __name__ == '__main__':
             coord[id_human].append(lua)
             coord[id_human].append(rla)
             coord[id_human].append(lla)
-            df_list[id_human] = df_list[id_human].append(pd.Series(coord[id_human],index=['x_Nose','y_Nose','x_Neck','y_Neck','x_RShoulder','y_RShoulder','x_RElbow',
+            df_list[idx_min] = df_list[idx_min].append(pd.Series(coord[id_human],index=['x_Nose','y_Nose','x_Neck','y_Neck','x_RShoulder','y_RShoulder','x_RElbow',
 'y_RElbow','x_RWrist','y_RWrist','x_LShoulder','y_LShoulder','x_LElbow','y_LElbow','x_LWrist','y_LWrist',
 'x_RHip','y_RHip','x_RKnee','y_RKnee','x_RAnkle','y_RAnkle','x_LHip','y_LHip','x_LKnee','y_LKnee','x_LAnkle','y_LAnkle',
 'x_REye','y_REye','x_LEye','y_LEye','x_REar','y_REar','x_LEar','y_LEar','Right_Up_Angle','Left_Up_Angle','Right_Low_Angle','Left_Low_Angle']), ignore_index= True)
